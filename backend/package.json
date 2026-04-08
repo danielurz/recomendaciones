@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "migrate": "node src/config/migrate.js",
-    "seed": "node src/config/seed.js",
+    "seed": "node src/tests/seed.js",
+    "embeddings": "node src/config/generate-embeddings.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "jest": {

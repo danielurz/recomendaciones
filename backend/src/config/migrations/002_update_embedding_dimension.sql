@@ -1,0 +1,2 @@
+ALTER TABLE reviews DROP COLUMN IF EXISTS embedding;
+ALTER TABLE reviews ADD COLUMN embedding VECTOR(3072);
