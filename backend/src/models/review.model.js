@@ -3,9 +3,15 @@ import pool from '../config/db.js';
 const ReviewModel = {
   async findAll() {
     const result = await pool.query(
-      `SELECT r.*, u.username, u.avatar_url
+      `SELECT r.*, u.username, u.avatar_url,
+        COUNT(DISTINCT c.id)::INT AS comment_count,
+        COUNT(DISTINCT CASE WHEN rv.vote = 1 THEN rv.id END)::INT AS upvotes,
+        COUNT(DISTINCT CASE WHEN rv.vote = -1 THEN rv.id END)::INT AS downvotes
        FROM reviews r
        JOIN users u ON r.user_id = u.id
+       LEFT JOIN comments c ON c.review_id = r.id
+       LEFT JOIN review_votes rv ON rv.review_id = r.id
+       GROUP BY r.id, u.username, u.avatar_url
        ORDER BY r.created_at DESC`
     );
     return result.rows;
@@ -13,10 +19,16 @@ const ReviewModel = {
 
   async findById(id) {
     const result = await pool.query(
-      `SELECT r.*, u.username, u.avatar_url
+      `SELECT r.*, u.username, u.avatar_url,
+        COUNT(DISTINCT c.id)::INT AS comment_count,
+        COUNT(DISTINCT CASE WHEN rv.vote = 1 THEN rv.id END)::INT AS upvotes,
+        COUNT(DISTINCT CASE WHEN rv.vote = -1 THEN rv.id END)::INT AS downvotes
        FROM reviews r
        JOIN users u ON r.user_id = u.id
-       WHERE r.id = $1`,
+       LEFT JOIN comments c ON c.review_id = r.id
+       LEFT JOIN review_votes rv ON rv.review_id = r.id
+       WHERE r.id = $1
+       GROUP BY r.id, u.username, u.avatar_url`,
       [id]
     );
     return result.rows[0];
