@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Modelo especializado en generar embeddings (vectores numéricos que representan texto)
 const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
 // Modelo de chat para generar respuestas en lenguaje natural (resúmenes de búsqueda)
-const chatModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+const chatModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
 /**
  * Genera un embedding para un documento (reseña).
@@ -38,6 +38,22 @@ export async function generateQueryEmbedding(text) {
 }
 
 /**
+ * Extrae una etiqueta concisa del producto o servicio que está siendo reseñado.
+ * Se usa para darle peso semántico dominante al tipo de producto en el embedding,
+ * evitando que reseñas de productos distintos queden cerca por compartir lenguaje similar.
+ */
+export async function extractProductLabel(product_name, business_name, content) {
+  const prompt = `¿Qué producto o servicio específico está siendo reseñado? Responde con 2-5 palabras máximo, solo el nombre del producto o servicio, sin explicaciones. Ejemplos de respuesta: "pizza pepperoni", "sushi rolls", "corte de cabello", "membresía de gimnasio", "reparación de pantalla".
+
+Producto: ${product_name}
+Comercio: ${business_name}
+Reseña: ${content.slice(0, 200)}`;
+
+  const result = await chatModel.generateContent(prompt);
+  return result.response.text().trim().toLowerCase();
+}
+
+/**
  * Genera un resumen en lenguaje natural de los resultados de búsqueda.
  * La IA analiza las reseñas encontradas y produce un texto útil para el usuario.
  */
@@ -65,23 +81,8 @@ export async function generateSummary(query, reviews) {
 Estas reseñas ya fueron preseleccionadas por similitud semántica:
 ${reviewList}
 
-Escribe un summary de 2-3 oraciones para el usuario. Si la búsqueda menciona un precio máximo y los resultados lo superan, primero reconoce que no hay opciones dentro de ese presupuesto y luego presenta estas como las alternativas más cercanas disponibles, con tono amigable.
+Escribe un resumen de 2-3 oraciones para el usuario. Si la búsqueda menciona un precio máximo y los resultados lo superan, primero reconoce que no hay opciones dentro de ese presupuesto y luego presenta estas como las alternativas más cercanas disponibles. Tono amigable y directo. Responde SOLO con el texto del resumen, sin formato, sin listas, sin markdown.`;
 
-Responde ÚNICAMENTE con un JSON válido (sin markdown):
-{
-  "summary": "resumen útil y honesto para el usuario"
-}`;
-
-  // Envía el prompt al modelo de chat y obtiene la respuesta en texto
   const result = await chatModel.generateContent(prompt);
-  const text = result.response.text().trim();
-
-  // Extrae el bloque JSON de la respuesta (el modelo puede incluir texto extra)
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  // Si no se encontró JSON válido en la respuesta, retorna cadena vacía
-  if (!jsonMatch) return '';
-
-  // Parsea el JSON y retorna solo el campo summary
-  const parsed = JSON.parse(jsonMatch[0]);
-  return parsed.summary || '';
+  return result.response.text().trim();
 }

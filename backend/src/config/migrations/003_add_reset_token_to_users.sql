@@ -1,0 +1,3 @@
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS reset_token VARCHAR,
+  ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMP;

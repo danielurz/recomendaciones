@@ -2,8 +2,12 @@
 import bcrypt from 'bcryptjs';
 // Librería para generar y verificar tokens JWT
 import jwt from 'jsonwebtoken';
+// Módulo nativo para generar tokens aleatorios seguros
+import crypto from 'crypto';
 // Modelo de usuario para interactuar con la base de datos
 import UserModel from '../models/user.model.js';
+// Utilidades para envío de emails
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../utils/mailer.js';
 
 // Servicio de autenticación: contiene la lógica de negocio de registro e inicio de sesión
 const AuthService = {
@@ -13,11 +17,13 @@ const AuthService = {
    * Lanza un error si el email ya existe (el controlador lo convierte en respuesta 400).
    */
   async register({ username, email, password }) {
-    // Verifica si ya existe un usuario con ese email para evitar duplicados
-    const existingUser = await UserModel.findByEmail(email);
-    if (existingUser) {
-      throw new Error('Email already registered'); // El controlador captura este error
-    }
+    // Verifica duplicados de email y username en paralelo
+    const [existingEmail, existingUsername] = await Promise.all([
+      UserModel.findByEmail(email),
+      UserModel.findByUsername(username),
+    ]);
+    if (existingEmail) throw new Error('Email already registered');
+    if (existingUsername) throw new Error('Username already taken');
 
     // Hashea la contraseña con un salt factor de 10 (balance entre seguridad y velocidad)
     // Nunca se guarda la contraseña en texto plano
@@ -30,6 +36,9 @@ const AuthService = {
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN
     });
+
+    // Envía email de bienvenida en segundo plano (no bloquea la respuesta si falla)
+    sendWelcomeEmail(user.email, user.username).catch(() => {});
 
     // Retorna el usuario recién creado y el token para que el cliente inicie sesión directamente
     return { user, token };
@@ -44,13 +53,12 @@ const AuthService = {
     // Busca el usuario por email; retorna undefined si no existe
     const user = await UserModel.findByEmail(email);
     if (!user) {
-      throw new Error('Invalid credentials'); // Mensaje genérico: no revela si el email existe
+      throw new Error('Email not found');
     }
 
-    // Compara la contraseña ingresada con el hash almacenado en la base de datos
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      throw new Error('Invalid credentials'); // Mismo mensaje genérico por seguridad
+      throw new Error('Wrong password');
     }
 
     // Genera un nuevo token JWT para esta sesión
@@ -62,6 +70,38 @@ const AuthService = {
     // Nunca se devuelve el hash de la contraseña al cliente
     const { password_hash, ...userData } = user;
     return { user: userData, token };
+  },
+
+  /**
+   * Genera un token de reset y envía el email al usuario.
+   * No revela si el email existe o no (seguridad contra enumeración).
+   */
+  async forgotPassword(email) {
+    const user = await UserModel.findByEmail(email);
+    // Si el usuario no existe, no hacemos nada pero tampoco revelamos que no existe
+    if (!user) return;
+
+    // Token aleatorio de 32 bytes en hex (64 caracteres)
+    const token = crypto.randomBytes(32).toString('hex');
+    // Expira en 1 hora
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await UserModel.saveResetToken(email, token, expiresAt);
+    await sendPasswordResetEmail(email, token);
+  },
+
+  /**
+   * Valida el token y actualiza la contraseña del usuario.
+   * Lanza error si el token es inválido o ha expirado.
+   */
+  async resetPassword(token, newPassword) {
+    const user = await UserModel.findByResetToken(token);
+    if (!user) {
+      throw new Error('Invalid or expired token');
+    }
+
+    const password_hash = await bcrypt.hash(newPassword, 10);
+    await UserModel.updatePassword(user.id, password_hash);
   }
 };
 

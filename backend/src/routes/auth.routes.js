@@ -18,8 +18,19 @@ router.post('/register', [
 
 // POST /api/auth/login — Inicia sesión de un usuario existente
 router.post('/login', [
-  body('email').isEmail().withMessage('Valid email is required'),   // Debe ser un email válido
-  body('password').notEmpty().withMessage('Password is required')   // No puede estar vacío
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('password').notEmpty().withMessage('Password is required')
 ], AuthController.login);
+
+// POST /api/auth/forgot-password — Solicita email de reset de contraseña
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Valid email is required')
+], AuthController.forgotPassword);
+
+// POST /api/auth/reset-password — Restablece la contraseña con el token del email
+router.post('/reset-password', [
+  body('token').notEmpty().withMessage('Token is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], AuthController.resetPassword);
 
 export default router;

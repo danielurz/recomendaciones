@@ -14,7 +14,7 @@ const CommentModel = {
        FROM comments c
        JOIN users u ON c.user_id = u.id      -- agrega datos del autor
        WHERE c.review_id = $1               -- filtra por la reseña indicada
-       ORDER BY c.created_at ASC`,          -- orden cronológico para que el hilo se lea de arriba a abajo
+       ORDER BY c.created_at ASC`,          // orden cronológico para que el hilo se lea de arriba a abajo
       [review_id]
     );
     return result.rows; // Retorna array de comentarios con datos del autor

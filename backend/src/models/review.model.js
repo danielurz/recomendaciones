@@ -1,7 +1,7 @@
 // Pool de conexiones a la base de datos
 import pool from '../config/db.js';
 // Funciones de IA para generar embeddings: una para documentos y otra para consultas
-import { generateEmbedding, generateQueryEmbedding } from '../ai/gemini.js';
+import { generateEmbedding, generateQueryEmbedding, extractProductLabel } from '../ai/gemini.js';
 
 // Modelo de reseña: contiene todas las operaciones de base de datos relacionadas con la tabla reviews
 const ReviewModel = {
@@ -25,7 +25,7 @@ const ReviewModel = {
        LEFT JOIN comments c ON c.review_id = r.id            -- LEFT JOIN: incluye reseñas sin comentarios
        LEFT JOIN review_votes rv ON rv.review_id = r.id      -- LEFT JOIN: incluye reseñas sin votos
        GROUP BY r.id, u.username, u.avatar_url               -- agrupa para que los COUNT funcionen correctamente
-       ORDER BY r.created_at DESC`                           -- más recientes primero
+       ORDER BY r.created_at DESC`                           // más recientes primero
     );
     return result.rows; // Retorna array de reseñas
   },
@@ -61,7 +61,8 @@ const ReviewModel = {
    */
   async create({ user_id, product_name, product_price, content, is_recommended, business_name, business_location_text, google_place_id, google_place_name, latitude, longitude, place_confirmed }) {
     // Combina los campos más descriptivos para crear un texto rico para el embedding
-    const embeddingText = `${business_name} ${product_name} ${content}`;
+    const label = await extractProductLabel(product_name, business_name, content);
+    const embeddingText = `${label}. ${label}. ${label}. ${product_name} en ${business_name}, ${business_location_text}. Precio: ${product_price} pesos. ${is_recommended ? 'Recomendado.' : 'No recomendado.'} Reseña: ${content}`;
     // Llama a la API de Gemini para obtener el vector que representa esta reseña
     const embedding = await generateEmbedding(embeddingText);
 
@@ -100,11 +101,11 @@ const ReviewModel = {
        JOIN users u ON r.user_id = u.id
        LEFT JOIN comments c ON c.review_id = r.id
        LEFT JOIN review_votes rv ON rv.review_id = r.id
-       WHERE r.embedding IS NOT NULL                          -- solo reseñas con embedding calculado
-        AND r.embedding <=> $1::vector(3072) < 0.65          -- distancia coseno menor a 0.65 (más cercano = más similar)
+       WHERE r.embedding IS NOT NULL
+        AND r.embedding <=> $1::vector(3072) < 0.285
        GROUP BY r.id, u.username, u.avatar_url
-       ORDER BY r.embedding <=> $1::vector(3072)             -- ordena de más similar a menos similar
-       LIMIT $2`,                                            -- limita el número de resultados
+       ORDER BY r.embedding <=> $1::vector(3072)
+       LIMIT $2`,                                            // limita el número de resultados
       [JSON.stringify(embedding), limit]
     );
     return result.rows; // Retorna las reseñas más relevantes para la búsqueda

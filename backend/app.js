@@ -16,6 +16,8 @@ import voteRoutes from './src/routes/vote.routes.js';
 import commentRoutes from './src/routes/comment.routes.js';
 // Rutas de búsqueda semántica con IA
 import searchRoutes from './src/routes/search.routes.js';
+// Rutas del proxy de Google Places (autocompletar comercios)
+import placesRoutes from './src/routes/places.routes.js';
 
 // Crea la instancia principal de la aplicación Express
 const app = express();
@@ -42,6 +44,8 @@ app.use('/api/reviews/:id/vote', voteRoutes);
 app.use('/api/reviews/:id/comments', commentRoutes);
 // Monta las rutas de búsqueda semántica en /api/search
 app.use('/api/search', searchRoutes);
+// Monta las rutas del proxy de Google Places en /api/places
+app.use('/api/places', placesRoutes);
 
 // Exporta la app para que server.js pueda iniciarla
 export default app;

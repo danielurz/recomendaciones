@@ -10,9 +10,17 @@ const UserModel = {
   async findByEmail(email) {
     const result = await pool.query(
       'SELECT * FROM users WHERE email = $1',
-      [email] // Parámetro $1 evita inyección SQL
+      [email]
     );
-    return result.rows[0]; // Retorna el primer resultado o undefined si no existe
+    return result.rows[0];
+  },
+
+  async findByUsername(username) {
+    const result = await pool.query(
+      'SELECT id FROM users WHERE LOWER(username) = LOWER($1)',
+      [username]
+    );
+    return result.rows[0];
   },
 
   /**
@@ -39,6 +47,39 @@ const UserModel = {
       [username, email, password_hash]
     );
     return result.rows[0]; // Retorna el nuevo usuario con su ID generado
+  },
+
+  /**
+   * Guarda el token de reset y su fecha de expiración en el usuario.
+   * Sobreescribe cualquier token previo que no haya sido usado.
+   */
+  async saveResetToken(email, token, expiresAt) {
+    await pool.query(
+      'UPDATE users SET reset_token = $1, reset_token_expires_at = $2 WHERE email = $3',
+      [token, expiresAt, email]
+    );
+  },
+
+  /**
+   * Busca un usuario por su reset token.
+   * Retorna el usuario solo si el token existe y no ha expirado.
+   */
+  async findByResetToken(token) {
+    const result = await pool.query(
+      'SELECT * FROM users WHERE reset_token = $1 AND reset_token_expires_at > NOW()',
+      [token]
+    );
+    return result.rows[0];
+  },
+
+  /**
+   * Actualiza la contraseña del usuario y elimina el token de reset usado.
+   */
+  async updatePassword(id, password_hash) {
+    await pool.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires_at = NULL WHERE id = $2',
+      [password_hash, id]
+    );
   }
 };
 

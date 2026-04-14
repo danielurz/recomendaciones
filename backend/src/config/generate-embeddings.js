@@ -3,11 +3,11 @@ import 'dotenv/config';
 // Pool de conexiones a PostgreSQL
 import pool from './db.js';
 // Función que genera el vector de embedding usando la API de Gemini
-import { generateEmbedding } from '../ai/gemini.js';
+import { generateEmbedding, extractProductLabel } from '../ai/gemini.js';
 
 // Obtiene todas las reseñas que aún no tienen embedding calculado
 // Se usa WHERE embedding IS NULL para no recalcular las que ya fueron procesadas
-const reviews = await pool.query('SELECT id, business_name, product_name, content FROM reviews WHERE embedding IS NULL');
+const reviews = await pool.query('SELECT id, business_name, business_location_text, product_name, product_price, is_recommended, content FROM reviews WHERE embedding IS NULL');
 
 console.log(`Generating embeddings for ${reviews.rows.length} reviews...`);
 
@@ -15,7 +15,8 @@ console.log(`Generating embeddings for ${reviews.rows.length} reviews...`);
 for (const review of reviews.rows) {
   // Concatena los campos más relevantes en un solo texto para representar la reseña
   // El embedding de este texto permite comparar reseñas por similitud semántica
-  const text = `${review.business_name} ${review.product_name} ${review.content}`;
+  const label = await extractProductLabel(review.product_name, review.business_name, review.content);
+  const text = `${label}. ${label}. ${label}. ${review.product_name} en ${review.business_name}, ${review.business_location_text}. Precio: ${review.product_price} pesos. ${review.is_recommended ? 'Recomendado.' : 'No recomendado.'} Reseña: ${review.content}`;
   try {
     // Llama a la API de Gemini para obtener el vector numérico que representa el texto
     const embedding = await generateEmbedding(text);

@@ -50,6 +50,44 @@ const AuthController = {
       // 401 Unauthorized: credenciales inválidas (email no existe o contraseña incorrecta)
       res.status(401).json({ success: false, error: error.message, message: 'Login failed' });
     }
+  },
+
+  /**
+   * POST /api/auth/forgot-password
+   * Genera un token de reset y envía el email. Siempre responde 200
+   * para no revelar si el email está registrado o no.
+   */
+  async forgotPassword(req, res) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: 'Validation error', message: errors.array()[0].msg });
+    }
+
+    try {
+      await AuthService.forgotPassword(req.body.email);
+      res.status(200).json({ success: true, data: null, message: 'If that email exists, a reset link has been sent' });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message, message: 'Failed to process request' });
+    }
+  },
+
+  /**
+   * POST /api/auth/reset-password
+   * Valida el token y actualiza la contraseña. Responde 400 si el token es inválido o expiró.
+   */
+  async resetPassword(req, res) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: 'Validation error', message: errors.array()[0].msg });
+    }
+
+    try {
+      await AuthService.resetPassword(req.body.token, req.body.password);
+      res.status(200).json({ success: true, data: null, message: 'Password updated successfully' });
+    } catch (error) {
+      const status = error.message === 'Invalid or expired token' ? 400 : 500;
+      res.status(status).json({ success: false, error: error.message, message: 'Failed to reset password' });
+    }
   }
 };
 
