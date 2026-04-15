@@ -2,6 +2,9 @@
 import VoteModel from '../models/vote.model.js';
 // Modelo de reseña para verificar que existe y obtener su propietario
 import ReviewModel from '../models/review.model.js';
+// Servicio de peso para recalcular el weight de la reseña tras cada voto
+import WeightService from './weight.service.js';
+import ReputationService from './reputation.service.js';
 
 // Servicio de votos: contiene la lógica de negocio para el sistema de votación
 const VoteService = {
@@ -32,19 +35,29 @@ const VoteService = {
     // Busca si el usuario ya tiene un voto registrado para esta reseña
     const existing = await VoteModel.findByReviewAndUser(review_id, user_id);
 
+    let result;
+
     // Caso 1: El usuario no ha votado antes → crea el voto nuevo
     if (!existing) {
-      return await VoteModel.create(review_id, user_id, vote);
+      result = await VoteModel.create(review_id, user_id, vote);
+      await WeightService.recalculate(review_id);
+      await ReputationService.onReviewVote(review_id, user_id, vote);
+      return result;
     }
 
     // Caso 2: El usuario ya votó con el mismo valor → elimina el voto (toggle off)
     if (existing.vote === vote) {
       await VoteModel.delete(review_id, user_id);
-      return null; // null indica al controlador que el voto fue eliminado
+      await WeightService.recalculate(review_id);
+      await ReputationService.onReviewVote(review_id, user_id, -existing.vote);
+      return null;
     }
 
     // Caso 3: El usuario ya votó pero con valor diferente → actualiza al nuevo valor
-    return await VoteModel.update(review_id, user_id, vote);
+    result = await VoteModel.update(review_id, user_id, vote);
+    await WeightService.recalculate(review_id);
+    await ReputationService.onReviewVote(review_id, user_id, vote - existing.vote);
+    return result;
   }
 };
 

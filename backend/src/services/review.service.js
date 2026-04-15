@@ -1,5 +1,6 @@
 // Modelo de reseña para acceder a la base de datos
 import ReviewModel from '../models/review.model.js';
+import ReputationService from './reputation.service.js';
 
 // Servicio de reseñas: contiene la lógica de negocio para el CRUD de reseñas
 const ReviewService = {
@@ -28,7 +29,9 @@ const ReviewService = {
    * Combina el user_id del token JWT con los datos del cuerpo de la solicitud.
    */
   async create(user_id, data) {
-    return await ReviewModel.create({ user_id, ...data }); // Spread para pasar todos los campos
+    const review = await ReviewModel.create({ user_id, ...data });
+    await ReputationService.markActive(user_id);
+    return review;
   },
 
   /**

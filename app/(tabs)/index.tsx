@@ -1,3 +1,4 @@
+// Pantalla principal del feed: lista de reseñas recientes con barra de búsqueda
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import ReviewModal, { type Review as ModalReview } from '@/components/ReviewModal';
@@ -36,6 +37,7 @@ type Review = {
   downvotes: number;
 };
 
+// Tarjeta de reseña en el feed: muestra el resumen de una reseña y abre el modal al presionar
 function ReviewCard({ review, onPress }: { review: Review; onPress: (r: Review) => void }) {
   return (
     <Pressable style={styles.card} onPress={() => onPress(review)}>
@@ -48,7 +50,9 @@ function ReviewCard({ review, onPress }: { review: Review; onPress: (r: Review) 
           }
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.cardUsername}>@{review.username}</Text>
+          <Pressable onPress={() => router.push(`/user/${review.user_id}`)}>
+            <Text style={styles.cardUsername}>@{review.username}</Text>
+          </Pressable>
           <Text style={styles.cardBusiness} numberOfLines={1}>{review.business_name}</Text>
         </View>
         <View style={[styles.badge, review.is_recommended ? styles.badgeGreen : styles.badgeRed]}>
@@ -57,7 +61,7 @@ function ReviewCard({ review, onPress }: { review: Review; onPress: (r: Review) 
       </View>
 
       {/* Producto */}
-      <Text style={styles.cardProduct}>{review.product_name}</Text>
+      <Text style={styles.cardProduct} numberOfLines={1}>{review.product_name}</Text>
       <Text style={styles.cardPrice}>${Number(review.product_price).toLocaleString('es-CO')}</Text>
 
       {/* Contenido */}
@@ -82,6 +86,7 @@ export default function FeedScreen() {
   const [selectedReview, setSelectedReview] = useState<ModalReview | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
+  // Carga todas las reseñas al montar la pantalla (ordenadas por fecha en el backend)
   useEffect(() => {
     fetch(`${API_URL}/api/reviews`)
       .then(r => r.json())
@@ -90,11 +95,12 @@ export default function FeedScreen() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Cierra la sesión del usuario sin navegar (la UI se actualiza sola por el estado de AuthContext)
   const handleLogout = async () => {
     await logout();
-    router.replace('/(tabs)');
   };
 
+  // Navega a la pantalla de búsqueda con la consulta como parámetro
   const handleSearch = () => {
     if (searchQuery.trim()) {
       router.push({ pathname: '/(tabs)/search', params: { q: searchQuery.trim() } });
@@ -105,11 +111,11 @@ export default function FeedScreen() {
     <SafeAreaView style={styles.container}>
       {/* Top bar */}
       <View style={styles.topBar}>
-        <View>
+        <Pressable onPress={() => router.push('/(tabs)/profile')}>
           <Text style={styles.greeting}>Hola,</Text>
           <Text style={styles.username}>@{user?.username ?? 'invitado'}</Text>
-        </View>
-        {user && (
+        </Pressable>
+        {user ? (
           <View style={styles.topActions}>
             <Pressable style={styles.createBtn} onPress={() => setShowCreate(true)}>
               <Text style={styles.createBtnText}>+ Reseña</Text>
@@ -118,6 +124,10 @@ export default function FeedScreen() {
               <Text style={styles.logoutText}>Cerrar sesión</Text>
             </Pressable>
           </View>
+        ) : (
+          <Pressable style={styles.loginBtn} onPress={() => router.push('/(auth)/login')}>
+            <Text style={styles.loginBtnText}>Iniciar sesión</Text>
+          </Pressable>
         )}
       </View>
 
@@ -194,6 +204,13 @@ const styles = StyleSheet.create({
     borderColor: '#e53935',
   },
   logoutText: { color: '#e53935', fontSize: 13, fontWeight: '600' },
+  loginBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.light.tint,
+  },
+  loginBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   // Search
   searchRow: {
@@ -228,9 +245,11 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
+    height: 215,
     backgroundColor: '#fff',
     borderRadius: 14,
     padding: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,

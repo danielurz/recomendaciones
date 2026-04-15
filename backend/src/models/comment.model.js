@@ -10,14 +10,19 @@ const CommentModel = {
    */
   async findByReview(review_id) {
     const result = await pool.query(
-      `SELECT c.*, u.username, u.avatar_url  -- c.* trae todos los campos del comentario
+      `SELECT c.id, c.review_id, c.user_id, c.parent_id, c.content, c.created_at,
+        u.username, u.avatar_url,
+        COUNT(DISTINCT CASE WHEN cv.vote = 1  THEN cv.id END)::INT AS upvotes,
+        COUNT(DISTINCT CASE WHEN cv.vote = -1 THEN cv.id END)::INT AS downvotes
        FROM comments c
-       JOIN users u ON c.user_id = u.id      -- agrega datos del autor
-       WHERE c.review_id = $1               -- filtra por la reseña indicada
-       ORDER BY c.created_at ASC`,          // orden cronológico para que el hilo se lea de arriba a abajo
+       JOIN users u ON c.user_id = u.id
+       LEFT JOIN comment_votes cv ON cv.comment_id = c.id
+       WHERE c.review_id = $1
+       GROUP BY c.id, u.username, u.avatar_url
+       ORDER BY c.created_at ASC`,
       [review_id]
     );
-    return result.rows; // Retorna array de comentarios con datos del autor
+    return result.rows;
   },
 
   /**

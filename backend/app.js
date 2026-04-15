@@ -18,6 +18,8 @@ import commentRoutes from './src/routes/comment.routes.js';
 import searchRoutes from './src/routes/search.routes.js';
 // Rutas del proxy de Google Places (autocompletar comercios)
 import placesRoutes from './src/routes/places.routes.js';
+// Rutas de perfiles de usuario (perfil público + reseñas del usuario)
+import userRoutes from './src/routes/user.routes.js';
 
 // Crea la instancia principal de la aplicación Express
 const app = express();
@@ -46,6 +48,8 @@ app.use('/api/reviews/:id/comments', commentRoutes);
 app.use('/api/search', searchRoutes);
 // Monta las rutas del proxy de Google Places en /api/places
 app.use('/api/places', placesRoutes);
+// Monta las rutas de perfiles de usuario en /api/users
+app.use('/api/users', userRoutes);
 
 // Exporta la app para que server.js pueda iniciarla
 export default app;

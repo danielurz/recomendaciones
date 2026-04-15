@@ -12,7 +12,7 @@ const PlacesService = {
       input: query,
       key: process.env.GOOGLE_PLACES_API_KEY,
       language: 'es',
-      components: 'country:co',
+      components: 'country:co', // Restringe los resultados únicamente a Colombia
     });
 
     if (sessiontoken) {

@@ -21,13 +21,15 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
+// Sugerencia devuelta por el endpoint de Google Places
 type Suggestion = {
   place_id: string;
-  main_text: string;
-  secondary_text: string | null;
-  description: string;
+  main_text: string;         // Nombre del comercio
+  secondary_text: string | null; // Dirección / ciudad
+  description: string;       // Texto completo de la sugerencia
 };
 
+// Datos del lugar confirmado en Google Maps, se envían al backend junto con la reseña
 type PlaceData = {
   google_place_id: string;
   google_place_name: string;
@@ -40,6 +42,7 @@ type Props = {
   onCreated: (review: Review) => void;
 };
 
+// Estado inicial vacío del formulario — se reutiliza al cerrar o enviar
 const EMPTY_FORM = {
   product_name: '',
   product_price: '',
@@ -57,37 +60,42 @@ function newSessionToken() {
 export default function CreateReviewModal({ visible, onClose, onCreated }: Props) {
   const { user, token } = useAuth();
   const [form, setForm] = useState(EMPTY_FORM);
-  const [placeData, setPlaceData] = useState<PlaceData | null>(null);
+  const [placeData, setPlaceData] = useState<PlaceData | null>(null); // null = comercio no verificado en Maps
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sessionTokenRef = useRef(newSessionToken());
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Referencia al timer de debounce
+  const sessionTokenRef = useRef(newSessionToken()); // Token de sesión de Places, se renueva tras cada selección
 
+  // Actualiza un campo del formulario de forma genérica
   const set = (key: keyof typeof EMPTY_FORM, value: string | boolean) =>
     setForm(prev => ({ ...prev, [key]: value }));
 
+  // Limpia el formulario completo y cierra el modal
   const handleClose = () => {
     setForm(EMPTY_FORM);
     setPlaceData(null);
     setSuggestions([]);
     setError('');
-    sessionTokenRef.current = newSessionToken();
+    sessionTokenRef.current = newSessionToken(); // Nuevo token para la próxima sesión
     onClose();
   };
 
+  // Maneja el cambio de texto del campo "Comercio" con debounce para no saturar la API
   const handleBusinessInput = (text: string) => {
     set('business_name', text);
     setPlaceData(null); // El usuario está editando manualmente, limpia la selección previa
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current); // Cancela el timer anterior
 
+    // No consulta si el texto es muy corto
     if (!text.trim() || text.length < 2) {
       setSuggestions([]);
       return;
     }
 
+    // Espera 350ms de inactividad antes de llamar a la API
     debounceRef.current = setTimeout(async () => {
       setLoadingSuggestions(true);
       try {
@@ -104,20 +112,20 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
     }, 350);
   };
 
+  // Rellena el formulario con los datos del lugar seleccionado y marca como verificado en Maps
   const handleSelectSuggestion = (s: Suggestion) => {
     setForm(prev => ({
       ...prev,
       business_name: s.main_text,
-      business_location_text: s.secondary_text ?? '',
+      business_location_text: s.secondary_text ?? '', // La dirección viene del secondary_text de Places
     }));
     setPlaceData({
       google_place_id: s.place_id,
       google_place_name: s.main_text,
       place_confirmed: true,
     });
-    setSuggestions([]);
-    // Renueva el session token tras la selección (nueva sesión de billing)
-    sessionTokenRef.current = newSessionToken();
+    setSuggestions([]); // Cierra el dropdown
+    sessionTokenRef.current = newSessionToken(); // Renueva el session token tras la selección (nueva sesión de billing)
   };
 
   const handleSubmit = async () => {
@@ -146,7 +154,7 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
           business_name: business_name.trim(),
           business_location_text: business_location_text.trim(),
           is_recommended: form.is_recommended,
-          ...(placeData ?? {}),
+          ...(placeData ?? {}), // Si el usuario confirmó el lugar en Maps, se incluyen los datos de Places
         }),
       });
       const json = await res.json();
@@ -174,6 +182,7 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <Pressable style={styles.overlay} onPress={handleClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          {/* Detiene la propagación del tap para no cerrar al tocar dentro del modal */}
           <Pressable style={styles.modal} onPress={() => {}}>
 
             {/* Header */}
@@ -184,12 +193,13 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
               </Pressable>
             </View>
 
+            {/* keyboardShouldPersistTaps="handled" permite tocar sugerencias sin cerrar el teclado */}
             <ScrollView
               contentContainerStyle={styles.scroll}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {/* Recomienda toggle */}
+              {/* Toggle recomienda / no recomienda */}
               <View style={styles.toggleRow}>
                 <Pressable
                   style={[styles.toggleBtn, form.is_recommended && styles.toggleBtnActive]}
@@ -209,7 +219,7 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
                 </Pressable>
               </View>
 
-              {/* Comercio con autocomplete */}
+              {/* Comercio con autocomplete de Google Places */}
               <Text style={styles.label}>Comercio</Text>
               <View>
                 <View style={styles.inputRow}>
@@ -219,16 +229,20 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
                     placeholderTextColor="#aaa"
                     value={form.business_name}
                     onChangeText={handleBusinessInput}
+                    // El delay de 150ms permite que el onPress de la sugerencia se ejecute antes de limpiar el dropdown
                     onBlur={() => setTimeout(() => setSuggestions([]), 150)}
                   />
+                  {/* Spinner mientras se consulta Google Places */}
                   {loadingSuggestions && (
                     <ActivityIndicator style={styles.inputSpinner} size="small" color={Colors.light.tint} />
                   )}
+                  {/* Badge que indica que el comercio fue confirmado en Google Maps */}
                   {placeData && (
                     <Text style={styles.verifiedBadge}>✓ Maps</Text>
                   )}
                 </View>
 
+                {/* Dropdown de sugerencias de Google Places */}
                 {suggestions.length > 0 && (
                   <View style={styles.suggestionsBox}>
                     {suggestions.map(s => (
@@ -247,7 +261,7 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
                 )}
               </View>
 
-              {/* Ubicación — se autocompleta al seleccionar, pero editable */}
+              {/* Ubicación — se autocompleta al seleccionar en Maps, pero el usuario puede editarla */}
               <Text style={styles.label}>Ubicación</Text>
               <TextInput
                 style={styles.input}
@@ -257,7 +271,7 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
                 onChangeText={v => set('business_location_text', v)}
               />
 
-              {/* Producto */}
+              {/* Producto o servicio reseñado */}
               <Text style={styles.label}>Producto o servicio</Text>
               <TextInput
                 style={styles.input}
@@ -277,7 +291,7 @@ export default function CreateReviewModal({ visible, onClose, onCreated }: Props
                 keyboardType="numeric"
               />
 
-              {/* Contenido */}
+              {/* Contenido de la reseña */}
               <Text style={styles.label}>Tu reseña</Text>
               <TextInput
                 style={[styles.input, styles.inputMultiline]}

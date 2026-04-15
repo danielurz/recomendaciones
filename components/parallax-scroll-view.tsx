@@ -1,3 +1,5 @@
+// ScrollView con efecto parallax en el header: el header se mueve a menor velocidad que el contenido al hacer scroll.
+// El headerImage se escala cuando se hace pull-to-refresh (overscroll) hacia arriba.
 import type { PropsWithChildren, ReactElement } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -11,6 +13,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
+// Altura fija del área del header; el contenido empieza justo debajo
 const HEADER_HEIGHT = 250;
 
 type Props = PropsWithChildren<{
@@ -27,6 +30,9 @@ export default function ParallaxScrollView({
   const colorScheme = useColorScheme() ?? 'light';
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollOffset(scrollRef);
+  // Transforma el header según el offset de scroll:
+  // - translateY: el header se mueve a la mitad de velocidad del scroll (efecto parallax)
+  // - scale: se agranda al hacer overscroll hacia arriba (efecto de rebote visual)
   const headerAnimatedStyle = useAnimatedStyle(() => {
     return {
       transform: [

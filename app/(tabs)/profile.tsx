@@ -1,3 +1,5 @@
+// Pantalla de perfil: muestra el avatar, reputación y acciones del usuario autenticado.
+// Si no hay sesión, muestra una pantalla de invitación para crear cuenta o iniciar sesión.
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +10,7 @@ import { Colors } from '@/constants/theme';
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
 
+  // Cierra la sesión del usuario sin navegar (la UI reacciona al cambio de estado de AuthContext)
   const handleLogout = async () => {
     await logout();
   };
@@ -50,7 +53,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.menu}>
-        <Pressable style={styles.menuItem}>
+        <Pressable style={styles.menuItem} onPress={() => router.push(`/user/${user.id}`)}>
           <Text style={styles.menuItemText}>Mis reseñas</Text>
           <Text style={styles.menuItemArrow}>›</Text>
         </Pressable>

@@ -21,6 +21,7 @@ function RootNavigator() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="review/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+      <Stack.Screen name="user/[id]" options={{ headerShown: false }} />
       <Stack.Screen
         name="(auth)/login"
         options={{ headerShown: false, presentation: 'transparentModal', animation: 'fade' }}

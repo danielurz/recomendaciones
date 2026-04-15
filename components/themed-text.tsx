@@ -1,3 +1,5 @@
+// Componente Text que respeta el tema claro/oscuro del sistema.
+// Acepta colores personalizados por prop o usa los colores del tema global de Colors.
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';

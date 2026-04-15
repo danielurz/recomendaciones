@@ -1,3 +1,5 @@
+// Componente de enlace externo: abre URLs en el navegador interno de la app en dispositivos nativos,
+// y en una nueva pestaña del navegador en web.
 import { Href, Link } from 'expo-router';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
 import { type ComponentProps } from 'react';

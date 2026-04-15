@@ -1,3 +1,5 @@
+// Sección expandible/colapsable: muestra u oculta su contenido al presionar el encabezado.
+// El ícono de flecha rota 90° cuando la sección está abierta.
 import { PropsWithChildren, useState } from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 

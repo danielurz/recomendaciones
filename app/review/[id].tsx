@@ -1,3 +1,6 @@
+// Pantalla de detalle de reseña en ruta propia (/review/[id]).
+// Alternativa al ReviewModal para deep links directos a una reseña específica.
+// Acepta el parámetro opcional ?data=JSON para pre-cargar los datos de la reseña sin un fetch adicional.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -49,6 +52,7 @@ type Comment = {
   avatar_url: string | null;
 };
 
+// Avatar reutilizable: muestra la foto del usuario o su inicial si no tiene avatar
 function Avatar({ url, name, size = 38 }: { url: string | null; name: string; size?: number }) {
   const style = { width: size, height: size, borderRadius: size / 2 };
   return (
@@ -69,13 +73,15 @@ export default function ReviewDetailScreen() {
   const { id, data } = useLocalSearchParams<{ id: string; data?: string }>();
   const { user, token } = useAuth();
 
+  // Si se pasó data como parámetro (serializado en JSON), se usa directamente para evitar un fetch adicional
   const [review, setReview] = useState<Review | null>(data ? JSON.parse(data) : null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [voting, setVoting] = useState(false);
+  const [voting, setVoting] = useState(false); // bloquea los botones de voto mientras se procesa la petición
 
+  // Carga los comentarios de la reseña al montar la pantalla
   useEffect(() => {
     fetch(`${API_URL}/api/reviews/${id}/comments`)
       .then(r => r.json())
@@ -83,6 +89,7 @@ export default function ReviewDetailScreen() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Envía el voto y actualiza los contadores localmente (sin refetch de la reseña completa)
   const handleVote = async (vote: 1 | -1) => {
     if (!user || !token || voting) return;
     setVoting(true);
@@ -105,6 +112,7 @@ export default function ReviewDetailScreen() {
     }
   };
 
+  // Publica un comentario y lo agrega al final de la lista sin recargar
   const handleComment = async () => {
     if (!commentText.trim() || !token || submitting) return;
     setSubmitting(true);

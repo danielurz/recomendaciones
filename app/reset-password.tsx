@@ -1,3 +1,5 @@
+// Pantalla de restablecimiento de contraseña: se abre desde el deep link del email de reset.
+// Lee el token JWT de reset desde los parámetros de URL y lo envía al backend junto con la nueva contraseña.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -17,13 +19,14 @@ import { Colors } from '@/constants/theme';
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function ResetPasswordScreen() {
-  const { token } = useLocalSearchParams<{ token: string }>();
+  const { token } = useLocalSearchParams<{ token: string }>(); // token de reset recibido por deep link del email
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(false); // true = muestra la pantalla de éxito
 
+  // Valida los campos localmente, luego envía el token y la nueva contraseña al backend
   const handleReset = async () => {
     setError('');
     if (password.length < 6) {
@@ -46,7 +49,7 @@ export default function ResetPasswordScreen() {
         setError(json.message || 'El enlace es inválido o ha expirado');
         return;
       }
-      setDone(true);
+      setDone(true); // cambia a la pantalla de confirmación
     } catch {
       setError('No se pudo conectar al servidor');
     } finally {

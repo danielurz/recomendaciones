@@ -1,5 +1,8 @@
+// Librería para enviar emails mediante SMTP
 import nodemailer from 'nodemailer';
 
+// Crea el transporter de email usando las credenciales de Mailtrap (sandbox de emails para desarrollo)
+// En producción se reemplaza Mailtrap por un proveedor real (SendGrid, Resend, etc.)
 const transporter = nodemailer.createTransport({
   host: process.env.MAILTRAP_HOST,
   port: Number(process.env.MAILTRAP_PORT),

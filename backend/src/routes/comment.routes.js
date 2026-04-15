@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 // Controlador que maneja los comentarios en reseñas
 import CommentController from '../controllers/comment.controller.js';
+import CommentVoteController from '../controllers/comment_vote.controller.js';
 // Middleware que verifica el token JWT y agrega req.user
 import authMiddleware from '../middlewares/auth.middleware.js';
 
@@ -22,5 +23,8 @@ router.post('/', authMiddleware, [
 // DELETE /api/reviews/:id/comments/:commentId — Elimina un comentario específico (requiere autenticación)
 // :commentId distingue el comentario de :id (la reseña padre)
 router.delete('/:commentId', authMiddleware, CommentController.delete);
+
+// POST /api/reviews/:id/comments/:commentId/vote — Vota un comentario (requiere autenticación)
+router.post('/:commentId/vote', authMiddleware, CommentVoteController.vote);
 
 export default router;

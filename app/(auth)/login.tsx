@@ -1,3 +1,5 @@
+// Pantalla de inicio de sesión: modal transparente que aparece sobre el feed.
+// Acepta el parámetro ?registered=1 para mostrar un banner de bienvenida tras el registro.
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -19,12 +21,13 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function LoginScreen() {
   const { login } = useAuth();
-  const { registered } = useLocalSearchParams<{ registered?: string }>();
+  const { registered } = useLocalSearchParams<{ registered?: string }>(); // viene de register tras crear cuenta
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Llama a la API de login, guarda la sesión en AuthContext y navega al feed
   const handleLogin = async () => {
     setError('');
     setLoading(true);
@@ -36,6 +39,7 @@ export default function LoginScreen() {
       });
       const json = await res.json();
       if (!json.success) {
+        // Traduce los errores del backend a mensajes amigables en español
         const errorMessages: Record<string, string> = {
           'Email not found': 'No existe una cuenta con ese correo.',
           'Wrong password': 'Contraseña incorrecta.',
@@ -43,6 +47,7 @@ export default function LoginScreen() {
         setError(errorMessages[json.error] ?? json.message ?? 'Error al iniciar sesión');
         return;
       }
+      // Persiste token y datos del usuario en AsyncStorage a través de AuthContext
       await login(json.data.token, json.data.user);
       router.replace('/(tabs)');
     } catch {

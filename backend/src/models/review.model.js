@@ -15,7 +15,7 @@ const ReviewModel = {
     const result = await pool.query(
       `SELECT r.id, r.user_id, r.product_name, r.product_price, r.content, r.is_recommended,
         r.business_name, r.business_location_text, r.google_place_id, r.google_place_name,
-        r.latitude, r.longitude, r.place_confirmed, r.score, r.created_at, r.updated_at,
+        r.latitude, r.longitude, r.place_confirmed, r.score, r.weight, r.created_at, r.updated_at,
         u.username, u.avatar_url,
         COUNT(DISTINCT c.id)::INT AS comment_count,           -- total de comentarios en la reseña
         COUNT(DISTINCT CASE WHEN rv.vote = 1 THEN rv.id END)::INT AS upvotes,   -- votos positivos
@@ -38,7 +38,7 @@ const ReviewModel = {
     const result = await pool.query(
       `SELECT r.id, r.user_id, r.product_name, r.product_price, r.content, r.is_recommended,
         r.business_name, r.business_location_text, r.google_place_id, r.google_place_name,
-        r.latitude, r.longitude, r.place_confirmed, r.score, r.created_at, r.updated_at,
+        r.latitude, r.longitude, r.place_confirmed, r.score, r.weight, r.created_at, r.updated_at,
         u.username, u.avatar_url,
         COUNT(DISTINCT c.id)::INT AS comment_count,
         COUNT(DISTINCT CASE WHEN rv.vote = 1 THEN rv.id END)::INT AS upvotes,
@@ -92,7 +92,7 @@ const ReviewModel = {
     const result = await pool.query(
       `SELECT r.id, r.user_id, r.product_name, r.product_price, r.content, r.is_recommended,
         r.business_name, r.business_location_text, r.google_place_id, r.google_place_name,
-        r.latitude, r.longitude, r.place_confirmed, r.score, r.created_at, r.updated_at,
+        r.latitude, r.longitude, r.place_confirmed, r.score, r.weight, r.created_at, r.updated_at,
         u.username, u.avatar_url,
         COUNT(DISTINCT c.id)::INT AS comment_count,
         COUNT(DISTINCT CASE WHEN rv.vote = 1 THEN rv.id END)::INT AS upvotes,
@@ -104,11 +104,17 @@ const ReviewModel = {
        WHERE r.embedding IS NOT NULL
         AND r.embedding <=> $1::vector(3072) < 0.285
        GROUP BY r.id, u.username, u.avatar_url
-       ORDER BY r.embedding <=> $1::vector(3072)
-       LIMIT $2`,                                            // limita el número de resultados
+       ORDER BY
+         -- Relevancia semántica (factor primario): similitud coseno normalizada a [0,1]
+         (1 - (r.embedding <=> $1::vector(3072)))
+         -- Weight comunitario (factor secundario): escala logarítmica para no sobrepasar
+         -- la relevancia semántica. SIGN conserva el signo de pesos negativos.
+         + SIGN(r.weight) * LN(1 + ABS(r.weight)) * 0.1
+         DESC
+       LIMIT $2`,
       [JSON.stringify(embedding), limit]
     );
-    return result.rows; // Retorna las reseñas más relevantes para la búsqueda
+    return result.rows;
   },
 
   /**
@@ -138,9 +144,36 @@ const ReviewModel = {
   },
 
   /**
+   * Obtiene todas las reseñas escritas por un usuario específico.
+   * Incluye conteo de comentarios y votos con el mismo nivel de detalle que findAll.
+   * Ordena por fecha de creación descendente (más recientes primero).
+   * Se usa para renderizar el historial de reseñas en la página de perfil del usuario.
+   */
+  async findByUser(user_id) {
+    const result = await pool.query(
+      `SELECT r.id, r.user_id, r.product_name, r.product_price, r.content, r.is_recommended,
+        r.business_name, r.business_location_text, r.google_place_id, r.google_place_name,
+        r.latitude, r.longitude, r.place_confirmed, r.score, r.weight, r.created_at, r.updated_at,
+        u.username, u.avatar_url,
+        COUNT(DISTINCT c.id)::INT AS comment_count,
+        COUNT(DISTINCT CASE WHEN rv.vote = 1 THEN rv.id END)::INT AS upvotes,
+        COUNT(DISTINCT CASE WHEN rv.vote = -1 THEN rv.id END)::INT AS downvotes
+       FROM reviews r
+       JOIN users u ON r.user_id = u.id
+       LEFT JOIN comments c ON c.review_id = r.id
+       LEFT JOIN review_votes rv ON rv.review_id = r.id
+       WHERE r.user_id = $1
+       GROUP BY r.id, u.username, u.avatar_url
+       ORDER BY r.created_at DESC`,
+      [user_id]
+    );
+    return result.rows;
+  },
+
+  /**
    * Verifica si un usuario es el propietario de una reseña.
-   * Retorna true si existe una reseña con ese ID y ese user_id, false si no.
-   * Se usa para autorizar ediciones y eliminaciones.
+   * Retorna true si existe una reseña con ese ID y ese user_id, false en cualquier otro caso.
+   * Se usa para autorizar ediciones y eliminaciones antes de ejecutarlas.
    */
   async isOwner(id, user_id) {
     const result = await pool.query(

@@ -1,3 +1,5 @@
+// Tests de integración para los endpoints de autenticación (registro, login, reset de contraseña).
+// Ejecutan contra una base de datos real (sin mocks) — requieren DATABASE_URL válida.
 import request from 'supertest';
 import app from '../../app.js';
 import pool from '../config/db.js';

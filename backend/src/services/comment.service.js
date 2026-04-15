@@ -1,7 +1,7 @@
 // Modelo de comentario para acceder a la base de datos
 import CommentModel from '../models/comment.model.js';
-// Modelo de reseña para validar que la reseña padre existe antes de operar sobre sus comentarios
 import ReviewModel from '../models/review.model.js';
+import ReputationService from './reputation.service.js';
 
 // Servicio de comentarios: contiene la lógica de negocio para comentarios en reseñas
 const CommentService = {
@@ -31,7 +31,9 @@ const CommentService = {
       throw new Error('Review not found'); // El controlador convierte esto en respuesta 404
     }
     // Crea el comentario con todos los campos necesarios
-    return await CommentModel.create({ review_id, user_id, parent_id, content });
+    const comment = await CommentModel.create({ review_id, user_id, parent_id, content });
+    await ReputationService.markActive(user_id);
+    return comment;
   },
 
   /**

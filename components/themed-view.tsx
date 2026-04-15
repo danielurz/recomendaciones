@@ -1,3 +1,5 @@
+// Componente View que respeta el tema claro/oscuro del sistema.
+// Aplica automáticamente el color de fondo del tema activo.
 import { View, type ViewProps } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';

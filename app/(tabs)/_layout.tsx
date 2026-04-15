@@ -1,3 +1,6 @@
+// Layout de las pestañas principales de la app.
+// La barra de navegación inferior está oculta (tabBarStyle: display none)
+// porque la navegación se maneja con botones propios dentro de cada pantalla.
 import { Tabs } from 'expo-router';
 
 export default function TabLayout() {

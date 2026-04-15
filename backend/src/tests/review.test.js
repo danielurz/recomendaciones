@@ -1,3 +1,5 @@
+// Tests de integración para el CRUD de reseñas (crear, leer, actualizar, eliminar).
+// Ejecutan contra una base de datos real (sin mocks) — requieren DATABASE_URL válida.
 import request from 'supertest';
 import app from '../../app.js';
 import pool from '../config/db.js';

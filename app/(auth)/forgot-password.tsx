@@ -1,3 +1,5 @@
+// Pantalla de recuperación de contraseña: solicita el email y envía un enlace de reset.
+// Por seguridad no revela si el email existe o no (la API siempre responde success: true).
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -18,9 +20,10 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(false); // true = muestra el mensaje de confirmación en lugar del formulario
   const [error, setError] = useState('');
 
+  // Llama al endpoint de forgot-password y cambia la vista al mensaje de confirmación
   const handleSubmit = async () => {
     setError('');
     setLoading(true);

@@ -1,3 +1,5 @@
+// Script de semilla para poblar la base de datos con datos de prueba.
+// Ejecutar manualmente con: node src/tests/seed.js
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import pool from '../config/db.js';

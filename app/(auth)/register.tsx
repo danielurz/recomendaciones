@@ -1,3 +1,5 @@
+// Pantalla de registro: modal transparente para crear una cuenta nueva.
+// Tras registrarse con éxito, redirige al login con el parámetro registered=1.
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -23,6 +25,7 @@ export default function RegisterScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Llama a la API de registro y redirige al login con un banner de confirmación
   const handleRegister = async () => {
     setError('');
     setLoading(true);
@@ -34,6 +37,7 @@ export default function RegisterScreen() {
       });
       const json = await res.json();
       if (!json.success) {
+        // Traduce los errores del backend a mensajes amigables en español
         const errorMessages: Record<string, string> = {
           'Email already registered': 'Este correo ya está registrado.',
           'Username already taken': 'Este nombre de usuario ya está en uso.',
@@ -41,6 +45,7 @@ export default function RegisterScreen() {
         setError(errorMessages[json.error] ?? json.message ?? 'Error al registrarse');
         return;
       }
+      // No hace login automático: redirige al login para que el usuario ingrese sus credenciales
       router.replace({ pathname: '/(auth)/login', params: { registered: '1' } });
     } catch {
       setError('No se pudo conectar al servidor');

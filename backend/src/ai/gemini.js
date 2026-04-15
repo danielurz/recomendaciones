@@ -65,23 +65,34 @@ export async function generateSummary(query, reviews) {
 
   // Formatea cada reseña como texto legible para incluirla en el prompt
   // Incluye: número, comercio, producto, precio en COP, contenido y si fue recomendado
-  const reviewList = reviews.map((r, i) =>
-    `[${i + 1}] ${r.business_name} - ${r.product_name} ($${Number(r.product_price).toLocaleString('es-CO')} COP): ${r.content} (${r.is_recommended ? 'recomendado' : 'no recomendado'})`
-  ).join('\n');
+  const reviewList = reviews.map((r, i) => {
+    const weight = Number(r.weight ?? 0);
+    const weightLabel = weight > 10 ? ' [muy respaldada por la comunidad]'
+                      : weight > 3  ? ' [respaldada por la comunidad]'
+                      : weight < -3 ? ' [cuestionada por la comunidad]'
+                      : '';
+    return `[${i + 1}] ${r.business_name} - ${r.product_name} ($${Number(r.product_price).toLocaleString('es-CO')} COP): ${r.content} (${r.is_recommended ? 'recomendado' : 'no recomendado'}${weightLabel})`;
+  }).join('\n');
 
-  // Detecta si la consulta menciona un monto de dinero (presupuesto del usuario)
-  // Ejemplo: "pizza menos de 20 mil", "hamburguesa 15000 cop"
-  const budgetMatch = query.match(/(\d[\d.,]*)(\s*(mil|pesos|cop))?/i);
-  // Si se detectó un presupuesto, agrega una instrucción extra al prompt para manejarlo
-  const budgetHint = budgetMatch ? `El usuario mencionó un presupuesto o filtro de precio en su búsqueda.` : '';
+  // Detecta si el usuario mencionó explícitamente un precio o presupuesto en su búsqueda
+  // Solo palabras clave de precio directamente en la query, no en el contenido de las reseñas
+  const budgetMatch = query.match(/\b(\d[\d.,]+)\s*(mil|pesos|cop|\$)/i)
+                   || query.match(/\b(precio|presupuesto|barato|económico|caro|valor|costo)\b/i);
+  const budgetHint = budgetMatch
+    ? 'El usuario preguntó por precio. Puedes mencionar precios si son relevantes para responder.'
+    : 'El usuario NO preguntó por precios. No menciones precios ni valores monetarios en el resumen.';
 
-  // Construye el prompt con contexto, reseñas y reglas de comportamiento para la IA
-  const prompt = `Eres un asistente de búsqueda de reseñas de comercios en Bogotá. El usuario busca: "${query}". ${budgetHint}
+  const prompt = `Eres un asistente de búsqueda de reseñas de comercios en Bogotá. El usuario busca: "${query}".
 
 Estas reseñas ya fueron preseleccionadas por similitud semántica:
 ${reviewList}
 
-Escribe un resumen de 2-3 oraciones para el usuario. Si la búsqueda menciona un precio máximo y los resultados lo superan, primero reconoce que no hay opciones dentro de ese presupuesto y luego presenta estas como las alternativas más cercanas disponibles. Tono amigable y directo. Responde SOLO con el texto del resumen, sin formato, sin listas, sin markdown.`;
+Instrucciones:
+- Escribe un resumen de 2-3 oraciones respondiendo directamente a lo que el usuario busca.
+- ${budgetHint}
+- Si hay reseñas [muy respaldada por la comunidad] o [respaldada por la comunidad], dales más peso en tu resumen.
+- Si hay reseñas [cuestionada por la comunidad], mencionalo con cautela.
+- Tono amigable y directo. Responde SOLO con el texto del resumen, sin formato, sin listas, sin markdown.`;
 
   const result = await chatModel.generateContent(prompt);
   return result.response.text().trim();

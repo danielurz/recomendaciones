@@ -1,3 +1,5 @@
+// Pantalla placeholder para la tab de crear reseña.
+// La creación real se hace desde el modal CreateReviewModal en el feed (index.tsx).
 import { SafeAreaView, StyleSheet, Text } from 'react-native';
 
 export default function CreateScreen() {

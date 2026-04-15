@@ -19,6 +19,8 @@ import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/constants/theme';
 
+// Modal de detalle de reseña: muestra el contenido completo, votos y comentarios de una reseña.
+// Se abre al presionar cualquier tarjeta del feed o de los resultados de búsqueda.
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -44,12 +46,16 @@ export type Review = {
 
 type Comment = {
   id: string;
+  user_id: string;
   content: string;
   created_at: string;
   username: string;
   avatar_url: string | null;
+  upvotes: number;
+  downvotes: number;
 };
 
+// Animación de carga mientras se obtienen los comentarios del servidor
 function SkeletonComments() {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
@@ -78,6 +84,7 @@ function SkeletonComments() {
   );
 }
 
+// Avatar reutilizable: muestra la foto del usuario o su inicial si no tiene foto
 function Avatar({ url, name, size = 38 }: { url: string | null; name: string; size?: number }) {
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
@@ -104,17 +111,21 @@ export default function ReviewModal({ review, onClose }: Props) {
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [voting, setVoting] = useState(false);
-  const [localReview, setLocalReview] = useState<Review | null>(null);
-  const [userVote, setUserVote] = useState<1 | -1 | null>(null);
+  const [voting, setVoting] = useState(false); // bloquea el botón de voto mientras se procesa
+  const [localReview, setLocalReview] = useState<Review | null>(null); // copia local para actualizar los contadores optimistamente
+  const [userVote, setUserVote] = useState<1 | -1 | null>(null); // voto actual del usuario sobre la reseña
+  const [commentVotes, setCommentVotes] = useState<Record<string, 1 | -1 | null>>({}); // votos del usuario sobre cada comentario
+  const [votingComment, setVotingComment] = useState<string | null>(null); // ID del comentario que se está votando
   const scrollRef = useRef<ScrollView>(null);
 
+  // Al abrir el modal con una nueva reseña: resetea todo el estado y carga sus comentarios
   useEffect(() => {
     if (!review) return;
     setLocalReview(review);
     setComments([]);
     setCommentText('');
     setUserVote(null);
+    setCommentVotes({}); // limpia los votos de comentarios de la reseña anterior
     setLoadingComments(true);
     fetch(`${API_URL}/api/reviews/${review.id}/comments`)
       .then(r => r.json())
@@ -122,6 +133,7 @@ export default function ReviewModal({ review, onClose }: Props) {
       .finally(() => setLoadingComments(false));
   }, [review?.id]);
 
+  // Envía el voto del usuario sobre la reseña y actualiza los contadores localmente (sin refetch)
   const handleVote = async (vote: 1 | -1) => {
     if (!user || !token || voting || !localReview) return;
     setVoting(true);
@@ -161,6 +173,45 @@ export default function ReviewModal({ review, onClose }: Props) {
     }
   };
 
+  // Envía el voto del usuario sobre un comentario y actualiza los contadores localmente
+  // Solo un comentario se puede votar a la vez (votingComment lo bloquea)
+  const handleCommentVote = async (commentId: string, vote: 1 | -1) => {
+    if (!user || !token || votingComment || !localReview) return;
+    setVotingComment(commentId);
+    try {
+      const res = await fetch(`${API_URL}/api/reviews/${localReview.id}/comments/${commentId}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ vote }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const prev = commentVotes[commentId] ?? null;
+        setCommentVotes(cv => ({ ...cv, [commentId]: json.data === null ? null : vote }));
+        setComments(cs => cs.map(c => {
+          if (c.id !== commentId) return c;
+          let { upvotes, downvotes } = c;
+          if (json.data === null) {
+            if (prev === 1) upvotes--;
+            if (prev === -1) downvotes--;
+          } else if (prev === null) {
+            if (vote === 1) upvotes++;
+            else downvotes++;
+          } else {
+            if (prev === 1) upvotes--;
+            else downvotes--;
+            if (vote === 1) upvotes++;
+            else downvotes++;
+          }
+          return { ...c, upvotes, downvotes };
+        }));
+      }
+    } finally {
+      setVotingComment(null);
+    }
+  };
+
+  // Publica un comentario en la reseña y lo agrega al final de la lista sin refetch
   const handleComment = async () => {
     if (!commentText.trim() || !token || submitting || !localReview) return;
     setSubmitting(true);
@@ -203,9 +254,13 @@ export default function ReviewModal({ review, onClose }: Props) {
                 <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   {/* Autor */}
                   <View style={styles.authorRow}>
-                    <Avatar url={localReview.avatar_url} name={localReview.username} size={40} />
+                    <Pressable onPress={() => { onClose(); router.push(`/user/${localReview.user_id}`); }}>
+                      <Avatar url={localReview.avatar_url} name={localReview.username} size={40} />
+                    </Pressable>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.authorName}>@{localReview.username}</Text>
+                      <Pressable onPress={() => { onClose(); router.push(`/user/${localReview.user_id}`); }}>
+                        <Text style={styles.authorName}>@{localReview.username}</Text>
+                      </Pressable>
                       <Text style={styles.authorDate}>{formatDate(localReview.created_at)}</Text>
                     </View>
                     <View style={[styles.badge, localReview.is_recommended ? styles.badgeGreen : styles.badgeRed]}>
@@ -241,14 +296,21 @@ export default function ReviewModal({ review, onClose }: Props) {
                   <Text style={styles.content}>{localReview.content}</Text>
 
                   {/* Votos */}
-                  <View style={styles.votesRow}>
-                    <Pressable style={[styles.voteBtn, styles.upvoteBtn, userVote === 1 && styles.upvoteBtnActive]} onPress={() => handleVote(1)} disabled={!user || voting}>
+                  {user && user.id === localReview.user_id ? (
+                    <View style={styles.votesRowReadOnly}>
                       <Text style={styles.voteBtnText}>👍 {localReview.upvotes}</Text>
-                    </Pressable>
-                    <Pressable style={[styles.voteBtn, styles.downvoteBtn, userVote === -1 && styles.downvoteBtnActive]} onPress={() => handleVote(-1)} disabled={!user || voting}>
                       <Text style={styles.voteBtnText}>👎 {localReview.downvotes}</Text>
-                    </Pressable>
-                  </View>
+                    </View>
+                  ) : (
+                    <View style={styles.votesRow}>
+                      <Pressable style={[styles.voteBtn, styles.upvoteBtn, userVote === 1 && styles.upvoteBtnActive]} onPress={() => handleVote(1)} disabled={!user || voting}>
+                        <Text style={styles.voteBtnText}>👍 {localReview.upvotes}</Text>
+                      </Pressable>
+                      <Pressable style={[styles.voteBtn, styles.downvoteBtn, userVote === -1 && styles.downvoteBtnActive]} onPress={() => handleVote(-1)} disabled={!user || voting}>
+                        <Text style={styles.voteBtnText}>👎 {localReview.downvotes}</Text>
+                      </Pressable>
+                    </View>
+                  )}
 
                   {!user && (
                     <Text style={styles.loginHint}>
@@ -271,7 +333,30 @@ export default function ReviewModal({ review, onClose }: Props) {
                         <View style={styles.commentBody}>
                           <Text style={styles.commentUsername}>@{c.username}</Text>
                           <Text style={styles.commentContent}>{c.content}</Text>
-                          <Text style={styles.commentDate}>{formatDate(c.created_at)}</Text>
+                          <View style={styles.commentFooter}>
+                            <Text style={styles.commentDate}>{formatDate(c.created_at)}</Text>
+                            {user && user.id !== c.user_id && (
+                              <View style={styles.commentVotes}>
+                                <Pressable
+                                  style={[styles.commentVoteBtn, commentVotes[c.id] === 1 && styles.commentVoteBtnActiveUp]}
+                                  onPress={() => handleCommentVote(c.id, 1)}
+                                  disabled={votingComment === c.id}
+                                >
+                                  <Text style={styles.commentVoteText}>👍 {c.upvotes}</Text>
+                                </Pressable>
+                                <Pressable
+                                  style={[styles.commentVoteBtn, commentVotes[c.id] === -1 && styles.commentVoteBtnActiveDown]}
+                                  onPress={() => handleCommentVote(c.id, -1)}
+                                  disabled={votingComment === c.id}
+                                >
+                                  <Text style={styles.commentVoteText}>👎 {c.downvotes}</Text>
+                                </Pressable>
+                              </View>
+                            )}
+                            {(!user || user.id === c.user_id) && (
+                              <Text style={styles.commentVoteCount}>👍 {c.upvotes} · 👎 {c.downvotes}</Text>
+                            )}
+                          </View>
                         </View>
                       </View>
                     ))
@@ -372,6 +457,7 @@ const styles = StyleSheet.create({
   content: { fontSize: 14, color: '#333', lineHeight: 21, backgroundColor: '#fff', borderRadius: 12, padding: 12 },
 
   votesRow: { flexDirection: 'row', gap: 10 },
+  votesRowReadOnly: { flexDirection: 'row', gap: 16, paddingVertical: 6 },
   voteBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
   upvoteBtn: { backgroundColor: '#e8f5e9' },
   upvoteBtnActive: { backgroundColor: '#a5d6a7' },
@@ -387,7 +473,14 @@ const styles = StyleSheet.create({
   commentBody: { flex: 1, gap: 2 },
   commentUsername: { fontSize: 12, fontWeight: '700', color: '#11181C' },
   commentContent: { fontSize: 13, color: '#444', lineHeight: 18 },
+  commentFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   commentDate: { fontSize: 10, color: '#aaa' },
+  commentVotes: { flexDirection: 'row', gap: 6 },
+  commentVoteBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, backgroundColor: '#f5f5f5' },
+  commentVoteBtnActiveUp: { backgroundColor: '#a5d6a7' },
+  commentVoteBtnActiveDown: { backgroundColor: '#ef9a9a' },
+  commentVoteText: { fontSize: 11, fontWeight: '600', color: '#11181C' },
+  commentVoteCount: { fontSize: 11, color: '#aaa' },
 
   commentInputRow: {
     flexDirection: 'row', padding: 10, gap: 8,

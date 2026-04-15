@@ -1,3 +1,5 @@
+// Pantalla de búsqueda semántica con IA: busca reseñas por similitud de significado
+// y muestra un resumen generado por Gemini sobre los resultados encontrados.
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -34,6 +36,7 @@ type Review = {
   downvotes: number;
 };
 
+// Tarjeta de resultado de búsqueda (mismo diseño que en el feed)
 function ReviewCard({ review, onPress }: { review: Review; onPress: (r: Review) => void }) {
   return (
     <Pressable style={styles.card} onPress={() => onPress(review)}>
@@ -70,6 +73,7 @@ function ReviewCard({ review, onPress }: { review: Review; onPress: (r: Review) 
 }
 
 export default function SearchScreen() {
+  // initialQuery se pasa como parámetro de URL cuando el usuario busca desde el feed
   const { q: initialQuery } = useLocalSearchParams<{ q?: string }>();
 
   const [query, setQuery] = useState(initialQuery ?? '');
@@ -77,8 +81,10 @@ export default function SearchScreen() {
   const [summary, setSummary] = useState('');
   const [loadingResults, setLoadingResults] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(false); // true después de la primera búsqueda, para mostrar mensajes de estado
   const [selectedReview, setSelectedReview] = useState<ModalReview | null>(null);
+
+  // Si llega una query por parámetro (desde el feed), ejecuta la búsqueda automáticamente
   useEffect(() => {
     if (initialQuery?.trim()) {
       setQuery(initialQuery);
@@ -86,6 +92,10 @@ export default function SearchScreen() {
     }
   }, [initialQuery]);
 
+  // Ejecuta la búsqueda en dos pasos:
+  //   1. GET /api/search/results → obtiene las reseñas semánticamente similares
+  //   2. POST /api/search/summary → genera el resumen de IA con los resultados ya obtenidos
+  // Los dos pasos son secuenciales para pasar los resultados al summary sin repetir la búsqueda vectorial
   const runSearch = async (q: string) => {
     setResults([]);
     setSummary('');
@@ -117,6 +127,7 @@ export default function SearchScreen() {
       .finally(() => setLoadingSummary(false));
   };
 
+  // Dispara la búsqueda cuando el usuario presiona el botón o envía el formulario del teclado
   const handleSearch = () => {
     if (query.trim()) runSearch(query.trim());
   };

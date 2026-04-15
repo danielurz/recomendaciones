@@ -1,3 +1,5 @@
+// Botón de tab con retroalimentación háptica: vibra levemente al presionarlo en iOS.
+// En Android y web no agrega vibración (solo aplica en iOS para mantener la experiencia nativa).
 import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import * as Haptics from 'expo-haptics';

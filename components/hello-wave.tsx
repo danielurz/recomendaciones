@@ -1,3 +1,4 @@
+// Componente decorativo de bienvenida: muestra un emoji 👋 con animación de saludo.
 import Animated from 'react-native-reanimated';
 
 export function HelloWave() {

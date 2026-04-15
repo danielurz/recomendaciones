@@ -1,3 +1,5 @@
+// Tests de integración para el sistema de votos en reseñas (votar, toggle, cambiar voto).
+// Ejecutan contra una base de datos real (sin mocks) — requieren DATABASE_URL válida.
 import request from 'supertest';
 import app from '../../app.js';
 import pool from '../config/db.js';
